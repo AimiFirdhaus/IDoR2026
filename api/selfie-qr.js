@@ -1,7 +1,7 @@
 // Vercel serverless function: stores a booth selfie (and a small thumbnail for the
 // gallery) in Vercel Blob and returns the photo's public link, which the page shows
 // as a QR code. Needs BLOB_READ_WRITE_TOKEN (added when a Blob store is connected).
-// api/selfies.js lists the photos; api/cleanup-selfies.js deletes them after a day.
+// api/selfies.js lists the photos. Photos are kept indefinitely (no cleanup job).
 import { randomUUID } from "node:crypto";
 import { put } from "@vercel/blob";
 import { readJpeg } from "./_selfie.js";
