@@ -10,15 +10,17 @@ export default async function handler(req, res) {
   }
 
   const cutoff = Date.now() - MAX_AGE_MS;
-  let cursor;
   let deleted = 0;
-  do {
-    const page = await list({ prefix: "selfies/", cursor, limit: 1000 });
-    const old = page.blobs.filter((b) => new Date(b.uploadedAt).getTime() < cutoff).map((b) => b.url);
-    if (old.length) await del(old);
-    deleted += old.length;
-    cursor = page.hasMore ? page.cursor : undefined;
-  } while (cursor);
+  for (const prefix of ["selfies/", "thumbs/"]) {
+    let cursor;
+    do {
+      const page = await list({ prefix, cursor, limit: 1000 });
+      const old = page.blobs.filter((b) => new Date(b.uploadedAt).getTime() < cutoff).map((b) => b.url);
+      if (old.length) await del(old);
+      deleted += old.length;
+      cursor = page.hasMore ? page.cursor : undefined;
+    } while (cursor);
+  }
 
   return res.status(200).json({ deleted });
 }
