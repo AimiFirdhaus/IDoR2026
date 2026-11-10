@@ -23,9 +23,9 @@
   body { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
   #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
-  header { position: fixed; top: 14px; left: 18px; right: 18px; display: flex; align-items: center; justify-content: space-between; pointer-events: none; }
-  h1 { margin: 0; font-size: clamp(22px, 3.2vw, 40px); font-weight: 800; line-height: 1; color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,0.45); }
-  h1 small { display: block; font-size: 0.45em; font-weight: 600; color: #7fe3d3; opacity: 0.9; margin-top: 4px; text-shadow: none; }
+  header { position: fixed; top: 14px; left: 18px; right: 18px; display: flex; align-items: flex-start; justify-content: space-between; pointer-events: none; }
+  h1 { flex: 0 1 auto; min-width: 0; margin: 0 12px 0 0; line-height: 0; }
+  h1 img { width: clamp(140px, 28vw, 400px); max-width: 100%; height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); } /* shrinks on phones so the tool buttons stay on screen */
   .tools { display: flex; gap: 10px; pointer-events: auto; }
   .tools #lang { width: auto; display: flex; align-items: center; gap: 2px; padding: 5px; font: inherit; font-size: 17px; font-weight: 800; }
   #lang span { padding: 7px 11px; border-radius: 12px; color: var(--ink); opacity: 0.5; line-height: 1; }
@@ -101,6 +101,8 @@
   #selfie-stage video, #selfie-stage img.shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   #selfie-stage video { transform: scaleX(-1); }
   #selfie-bolt { position: absolute; right: 2%; bottom: 0; height: 72%; pointer-events: none; }
+  #selfie-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #selfie-logo { position: absolute; left: 4.375%; top: 5.417%; width: 28.75%; pointer-events: none; } /* LOGO in the selfie code, as % of W x H */
   #selfie-count { position: absolute; inset: 0; display: grid; place-items: center; font-size: min(30vw, 260px); font-weight: 800; color: #fff; text-shadow: 0 6px 30px rgba(0,0,0,0.6); pointer-events: none; }
   #selfie-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
   #selfie-flash.go { animation: flash 0.5s ease-out; }
@@ -144,7 +146,7 @@
 <canvas id="scene" aria-label="Bolt the robot. Tap Bolt to say hello."></canvas>
 
 <header>
-  <h1>Selamat Datang ke Reruai Perlindungan Sinaran <small>Welcome to Radiation Protection Booth</small></h1>
+  <h1><img src="idor-title.png" alt="International Day of Radiology: Radiologists and Radiographers Supporting Patients"></h1>
   <div class="tools">
     <button id="lang" aria-label="Tukar bahasa / Switch language"><span data-l="ms">BM</span><span data-l="en">EN</span></button>
     <button id="mute" aria-label="Mute robot voice">🔊</button>
@@ -177,6 +179,8 @@
   <div id="selfie-stage">
     <video id="selfie-video" autoplay playsinline muted></video>
     <img id="selfie-bolt" alt="">
+    <img id="selfie-frame" alt="">
+    <img id="selfie-logo" src="idor-title.png" alt="">
     <img id="selfie-shot" class="shot hidden" alt="Your selfie with Bolt">
     <div id="selfie-count"></div>
     <div id="selfie-flash"></div>
@@ -3934,6 +3938,7 @@ void main() {
     failed: { en: "Sorry, that didn't work. Check the internet and try again.", ms: "Maaf, tidak berjaya. Semak internet dan cuba lagi." },
     banner: { en: "Radiation Protection Booth · International Day of Radiology 2026", ms: "Reruai Perlindungan Sinaran · Hari Radiologi Antarabangsa 2026" },
     say: { en: "Get ready! Three, two, one, cheese!", ms: "Sedia! Tiga, dua, satu, senyum!" },
+    sticker: { en: "Stay safe!", ms: "Selamat!" },
     gallery: { en: "🖼️ All photos", ms: "🖼️ Semua gambar" },
     galleryTitle: { en: "All photos", ms: "Semua gambar" },
     loadingPhotos: { en: "Loading photos…", ms: "Memuatkan gambar…" },
@@ -3945,7 +3950,8 @@ void main() {
 
   let lang = "en", stream = null, photo = null, thumb = null, saved = null, busy = false, idleTimer = 0, boltTimer = 0;
   const tx = (k) => T[k][lang];
-  const overlay = $("selfie"), video = $("selfie-video"), shot = $("selfie-shot"), boltImg = $("selfie-bolt");
+  const overlay = $("selfie"), video = $("selfie-video"), shot = $("selfie-shot"), boltImg = $("selfie-bolt"), frameImg = $("selfie-frame"), logoImg = $("selfie-logo");
+  const LOGO = { x: 56, y: 52, w: 368 }; // event title graphic, on the dark card drawn in frameSvg()
   const msg = (text, error = false) => { $("selfie-msg").textContent = text; $("selfie-msg").classList.toggle("error", error); };
   const show = (...ids) => {
     for (const id of ["selfie-live", "selfie-review", "selfie-qr", "selfie-email", "selfie-gallery", "selfie-pick"]) $(id).classList.toggle("hidden", !ids.includes(id));
@@ -3980,6 +3986,44 @@ void main() {
     if (c) boltImg.src = c.toDataURL("image/png");
   }
 
+  // Radiology stickers around the edges (W x H), kept clear of faces in the middle and
+  // of Bolt on the right. Shown over the live camera and drawn into the saved photo.
+  function frameSvg() {
+    const blade = (a, r0, r1) => { // one 60-degree blade of the radiation symbol
+      const p = (r, d) => `${(r * Math.cos(d * Math.PI / 180)).toFixed(1)} ${(r * Math.sin(d * Math.PI / 180)).toFixed(1)}`;
+      return `M${p(r0, a - 30)}L${p(r1, a - 30)}A${r1} ${r1} 0 0 1 ${p(r1, a + 30)}L${p(r0, a + 30)}A${r0} ${r0} 0 0 0 ${p(r0, a - 30)}Z`;
+    };
+    const spark = (x, y, s, fill) => `<path transform="translate(${x} ${y}) scale(${s})" fill="${fill}" d="M0 -10Q1.5 -1.5 10 0Q1.5 1.5 0 10Q-1.5 1.5 -10 0Q-1.5 -1.5 0 -10Z"/>`;
+    const font = "font-family=\"'Trebuchet MS', Arial, sans-serif\" font-weight=\"800\"";
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<defs><linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="0.5" stop-color="#4f8cff"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+<rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="30" fill="none" stroke="url(#edge)" stroke-width="18"/>
+<rect x="26" y="26" width="${W - 52}" height="${H - 52}" rx="20" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round" opacity="0.8"/>
+<rect x="${LOGO.x - 16}" y="${LOGO.y - 16}" width="${LOGO.w + 32}" height="${Math.round(LOGO.w / 2.563) + 32}" rx="24" fill="#1d2b53" fill-opacity="0.82" stroke="#fff" stroke-width="5"/>
+<g transform="translate(${W - 120} 118) rotate(12)">
+  <circle r="80" fill="#ffd23f" stroke="#fff" stroke-width="7"/>
+  <g fill="#1d2b53">${[90, 210, 330].map((a) => `<path d="${blade(a, 20, 66)}"/>`).join("")}<circle r="13"/></g>
+</g>
+<g transform="translate(66 ${H * 0.52}) rotate(-10)">
+  <rect x="-10" y="-46" width="150" height="104" rx="16" fill="#0d1530" stroke="#7fe3d3" stroke-width="5"/>
+  <g fill="#e8f1ff"><rect x="34" y="-2" width="62" height="16" rx="6"/><circle cx="30" cy="-2" r="13"/><circle cx="30" cy="14" r="13"/><circle cx="100" cy="-2" r="13"/><circle cx="100" cy="14" r="13"/></g>
+  <text x="65" y="46" text-anchor="middle" ${font} font-size="17" fill="#7fe3d3" letter-spacing="2">X-RAY</text>
+</g>
+<g transform="translate(118 ${H * 0.33})" fill="none" stroke="#fff" stroke-width="5" opacity="0.95">
+  <ellipse rx="46" ry="17"/><ellipse rx="46" ry="17" transform="rotate(60)"/><ellipse rx="46" ry="17" transform="rotate(120)"/>
+  <circle r="9" fill="#ff7a59" stroke="none"/>
+</g>
+${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 290, 64, 1.8, "#7fe3d3")}${spark(W - 250, 214, 1.2, "#ffd23f")}${spark(60, H * 0.72, 1.6, "#ffd23f")}
+<g transform="translate(50 ${H - 196}) rotate(-6)">
+  <path d="M0 0H236A22 22 0 0 1 258 22V62A22 22 0 0 1 236 84H70L40 112L46 84H22A22 22 0 0 1 0 62V22A22 22 0 0 1 22 0Z" fill="#ff7a59" stroke="#fff" stroke-width="5"/>
+  <text x="129" y="55" text-anchor="middle" ${font} font-size="36" fill="#fff">${tx("sticker")}</text>
+</g>
+</svg>`;
+  }
+  function loadFrame() {
+    frameImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(frameSvg());
+  }
+
   function compose() {
     const c = document.createElement("canvas");
     c.width = W; c.height = H;
@@ -3994,6 +4038,8 @@ void main() {
       const bh = H * 0.72, bw = bolt.width * bh / bolt.height;
       g.drawImage(bolt, W * 0.98 - bw, H - bh, bw, bh);
     }
+    if (frameImg.complete && frameImg.naturalWidth) g.drawImage(frameImg, 0, 0, W, H);
+    if (logoImg.complete && logoImg.naturalWidth) g.drawImage(logoImg, LOGO.x, LOGO.y, LOGO.w, LOGO.w * logoImg.naturalHeight / logoImg.naturalWidth);
     const bannerH = 64;
     g.fillStyle = "rgba(29,43,83,0.82)";
     g.fillRect(0, H - bannerH, W, bannerH);
@@ -4032,7 +4078,7 @@ void main() {
     photo = null; thumb = null; saved = null; busy = false;
     $("selfie-title").textContent = tx("title");
     shot.classList.add("hidden"); shot.removeAttribute("src");
-    video.classList.remove("hidden"); boltImg.classList.remove("hidden");
+    video.classList.remove("hidden"); boltImg.classList.remove("hidden"); frameImg.classList.remove("hidden"); logoImg.classList.remove("hidden");
     $("selfie-agree").checked = false;
     $("selfie-address").value = "";
     $("selfie-count").textContent = "";
@@ -4056,6 +4102,7 @@ void main() {
     $("selfie-email-back").textContent = tx("back");
     $("selfie-send").textContent = tx("send");
     $("selfie-shoot").disabled = true;
+    loadFrame();
     overlay.classList.remove("hidden");
     window.__bolt?.play("Wave");
     liveView();
@@ -4098,7 +4145,7 @@ void main() {
     $("selfie-flash").classList.remove("go"); void $("selfie-flash").offsetWidth; $("selfie-flash").classList.add("go");
     shot.src = photo;
     shot.classList.remove("hidden");
-    video.classList.add("hidden"); boltImg.classList.add("hidden");
+    video.classList.add("hidden"); boltImg.classList.add("hidden"); frameImg.classList.add("hidden"); logoImg.classList.add("hidden");
     $("selfie-shoot").disabled = false;
     busy = false;
     syncChoice();
