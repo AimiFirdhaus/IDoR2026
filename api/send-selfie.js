@@ -32,12 +32,12 @@ export default async function handler(req, res) {
   const malay = lang === "ms";
   try {
     await transport.sendMail({
-      from: `"Bolt @ Reruai Perlindungan Sinaran" <${process.env.GMAIL_USER}>`,
+      from: `"Fiffy @ Reruai Perlindungan Sinaran" <${process.env.GMAIL_USER}>`,
       to,
-      subject: malay ? "Swafoto anda bersama Bolt 📸" : "Your selfie with Bolt 📸",
+      subject: malay ? "Swafoto anda bersama Fiffy 📸" : "Your selfie with Fiffy 📸",
       text: malay
-        ? "Terima kasih kerana melawat Reruai Perlindungan Sinaran sempena Hari Radiologi Antarabangsa! Swafoto anda bersama Bolt dilampirkan.\n\nIngat: masa, jarak dan pelindung memastikan kita selamat daripada sinaran.\n\n— Jabatan Radiologi, Hospital Tunku Azizah"
-        : "Thank you for visiting the Radiation Protection Booth for International Day of Radiology! Your selfie with Bolt is attached.\n\nRemember: time, distance and shielding keep us safe from radiation.\n\n— Radiology Department, Hospital Tunku Azizah",
+        ? "Terima kasih kerana melawat Reruai Perlindungan Sinaran sempena Hari Radiologi Antarabangsa! Swafoto anda bersama Fiffy dilampirkan.\n\nIngat: masa, jarak dan pelindung memastikan kita selamat daripada sinaran.\n\n— Jabatan Radiologi, Hospital Tunku Azizah"
+        : "Thank you for visiting the Radiation Protection Booth for International Day of Radiology! Your selfie with Fiffy is attached.\n\nRemember: time, distance and shielding keep us safe from radiation.\n\n— Radiology Department, Hospital Tunku Azizah",
       attachments: [{ filename: "selfie-with-bolt.jpg", content: photo, contentType: "image/jpeg" }],
     });
     return res.status(200).json({ ok: true });
