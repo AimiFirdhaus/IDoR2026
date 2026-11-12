@@ -26,7 +26,8 @@
   header { position: fixed; top: 14px; left: 18px; right: 18px; display: flex; align-items: flex-start; justify-content: space-between; pointer-events: none; }
   h1 { flex: 0 1 auto; min-width: 0; margin: 0 12px 0 0; line-height: 0; }
   h1 img { width: clamp(140px, 28vw, 400px); max-width: 100%; height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); } /* shrinks on phones so the tool buttons stay on screen */
-  .tools { display: flex; gap: 10px; pointer-events: auto; }
+  #dept-logo { flex: none; margin-left: auto; width: clamp(64px, 11vw, 160px); height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); } /* top-right; on phones it sits just left of the tool buttons */
+  .tools { display: flex; gap: 10px; pointer-events: auto; margin-left: 10px; }
   .tools #lang { width: auto; display: flex; align-items: center; gap: 2px; padding: 5px; font: inherit; font-size: 17px; font-weight: 800; }
   #lang span { padding: 7px 11px; border-radius: 12px; color: var(--ink); opacity: 0.5; line-height: 1; }
   #lang span.on { background: var(--accent-2); color: #fff; opacity: 1; }
@@ -91,6 +92,8 @@
   #loading.hidden { display: grid !important; opacity: 0; pointer-events: none; }
 
   @media (max-width: 700px) {
+    #dept-logo { position: absolute; right: 0; top: 60px; width: 52px; } /* phones: under the tool buttons so the title keeps its width */
+    #bubble { top: 122px; } /* and the bubble starts below the logo */
     .topic { font-size: 15px; padding: 8px 4px; }
     .topic .emoji { font-size: 26px; }
     #topics { grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -154,6 +157,7 @@
 
 <header>
   <h1><img src="idor-title.png" alt="International Day of Radiology: Radiologists and Radiographers Supporting Patients"></h1>
+  <img id="dept-logo" src="htaa-radiology-logo.png" alt="Radiology Department, Hospital Tunku Azizah">
   <div class="tools">
     <button id="lang" aria-label="Tukar bahasa / Switch language"><span data-l="ms">BM</span><span data-l="en">EN</span></button>
     <button id="mute" aria-label="Mute robot voice">🔊</button>
