@@ -26,7 +26,11 @@
   header { position: fixed; top: 14px; left: 18px; right: 18px; display: flex; align-items: flex-start; justify-content: space-between; pointer-events: none; }
   h1 { flex: 0 1 auto; min-width: 0; margin: 0 12px 0 0; line-height: 0; }
   h1 img { width: clamp(140px, 28vw, 400px); max-width: 100%; height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); } /* shrinks on phones so the tool buttons stay on screen */
-  #dept-logo { flex: none; margin-left: auto; width: clamp(64px, 11vw, 160px); height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); } /* top-right; on phones it sits just left of the tool buttons */
+  #brand { flex: none; margin-left: auto; display: flex; align-items: center; gap: clamp(8px, 1.2vw, 20px); } /* top-right: radiology logo, then coat of arms with the hospital name */
+  #dept-logo { width: clamp(64px, 11vw, 160px); height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); }
+  #hosp { margin: 0; display: flex; flex-direction: column; align-items: center; gap: clamp(2px, 0.4vw, 6px); }
+  #hosp img { height: clamp(46px, 8vw, 116px); width: auto; filter: drop-shadow(0 3px 10px rgba(0,0,0,0.45)); }
+  #hosp figcaption { color: #fff; font-weight: 800; font-size: clamp(9px, 1.05vw, 16px); letter-spacing: 0.06em; white-space: nowrap; line-height: 1.1; text-shadow: 0 2px 6px rgba(0,0,0,0.6); }
   .tools { display: flex; gap: 10px; pointer-events: auto; margin-left: 10px; }
   .tools #lang { width: auto; display: flex; align-items: center; gap: 2px; padding: 5px; font: inherit; font-size: 17px; font-weight: 800; }
   #lang span { padding: 7px 11px; border-radius: 12px; color: var(--ink); opacity: 0.5; line-height: 1; }
@@ -37,7 +41,7 @@
   #bubble.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
   #bubble::after { content: ''; position: absolute; left: 50%; bottom: -16px; margin-left: -16px; border: 16px solid transparent; border-bottom: 0; border-top-color: var(--card); }
   @media (min-width: 1000px) {
-    #bubble { left: calc(28% + 150px); top: 16%; width: min(560px, calc(72% - 190px)); transform: translate(-10px, 0) scale(0.95); }
+    #bubble { left: calc(28% + 150px); top: max(16%, calc(min(11vw, 160px) + 30px)); width: min(560px, calc(72% - 190px)); transform: translate(-10px, 0) scale(0.95); }
     #bubble.show { transform: translate(0, 0) scale(1); }
     #bubble::after { left: -16px; top: 34px; bottom: auto; margin-left: 0; border: 16px solid transparent; border-left: 0; border-right-color: var(--card); }
   }
@@ -92,8 +96,11 @@
   #loading.hidden { display: grid !important; opacity: 0; pointer-events: none; }
 
   @media (max-width: 700px) {
-    #dept-logo { position: absolute; right: 0; top: 60px; width: 52px; } /* phones: under the tool buttons so the title keeps its width */
-    #bubble { top: 122px; } /* and the bubble starts below the logo */
+    #brand { position: absolute; right: 0; top: 60px; gap: 8px; } /* phones: under the tool buttons so the title keeps its width */
+    #dept-logo { width: 52px; }
+    #hosp img { height: 38px; }
+    #hosp figcaption { font-size: 8px; }
+    #bubble { top: 138px; } /* and the bubble starts below the logo */
     .topic { font-size: 15px; padding: 8px 4px; }
     .topic .emoji { font-size: 26px; }
     #topics { grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -157,7 +164,13 @@
 
 <header>
   <h1><img src="idor-title.png" alt="International Day of Radiology: Radiologists and Radiographers Supporting Patients"></h1>
-  <img id="dept-logo" src="htaa-radiology-logo.png" alt="Radiology Department, Hospital Tunku Azizah">
+  <div id="brand">
+    <img id="dept-logo" src="htaa-radiology-logo.png" alt="Radiology Department, Hospital Tunku Azizah">
+    <figure id="hosp">
+      <img src="malaysia-coat-of-arms.svg" alt="Coat of arms of Malaysia">
+      <figcaption>HOSPITAL TUNKU AZIZAH</figcaption>
+    </figure>
+  </div>
   <div class="tools">
     <button id="lang" aria-label="Tukar bahasa / Switch language"><span data-l="ms">BM</span><span data-l="en">EN</span></button>
     <button id="mute" aria-label="Mute robot voice">🔊</button>
