@@ -75,7 +75,7 @@ export default async function handler(req, res) {
         ...cleanHistory(history),
         {
           role: "user",
-          content: `${malay ? "[Reply in Bahasa Melayu (Malaysia).]" : "[Reply in English.]"} ${text.trim().slice(0, 500)}`,
+          content: `${malay ? "[Reply in Bahasa Melayu as used in Malaysia, with Malaysian spelling and words (e.g. fizik, plumbum, doktor, tenaga, kakitangan), never Indonesian (e.g. fisika, timbal, dokter, energi, staf).]" : "[Reply in English.]"} ${text.trim().slice(0, 500)}`,
         },
       ],
     });
