@@ -30,7 +30,10 @@
   #dept-logo { width: clamp(64px, 11vw, 160px); height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); }
   #hosp { margin: 0; display: flex; flex-direction: column; align-items: center; gap: clamp(2px, 0.4vw, 6px); }
   #hosp img { height: clamp(46px, 8vw, 116px); width: auto; filter: drop-shadow(0 3px 10px rgba(0,0,0,0.45)); }
-  #hosp figcaption { color: #fff; font-weight: 800; font-size: clamp(9px, 1.05vw, 16px); letter-spacing: 0.06em; white-space: nowrap; line-height: 1.1; text-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+  #hosp figcaption span { display: block; }
+#hosp figcaption .sub { font-size: 0.62em; font-weight: 700; letter-spacing: 0.03em; margin-top: 0.2em; }
+#hosp figcaption .city { font-size: 0.8em; margin-top: 0.25em; }
+#hosp figcaption { text-align: center; color: #fff; font-weight: 800; font-size: clamp(9px, 1.05vw, 16px); letter-spacing: 0.06em; white-space: nowrap; line-height: 1.1; text-shadow: 0 2px 6px rgba(0,0,0,0.6); }
   .tools { display: flex; gap: 10px; pointer-events: auto; margin-left: 10px; }
   .tools #lang { display: none !important; } /* English only: language switch hidden */
   .tools #lang { width: auto; display: flex; align-items: center; gap: 2px; padding: 5px; font: inherit; font-size: 17px; font-weight: 800; }
@@ -112,7 +115,8 @@
     #dept-logo { width: 52px; }
     #hosp img { height: 38px; }
     #hosp figcaption { font-size: 8px; }
-    #bubble { top: 138px; } /* and the bubble starts below the logo */
+    #hosp figcaption .sub { font-size: 6px; }
+    #bubble { top: 148px; } /* and the bubble starts below the logo */
     .topic { font-size: 15px; padding: 8px 4px; }
     .topic .emoji { font-size: 26px; }
     #topics { grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -180,7 +184,7 @@
     <img id="dept-logo" src="htaa-radiology-logo.png" alt="Radiology Department, Hospital Tunku Azizah">
     <figure id="hosp">
       <img src="malaysia-coat-of-arms.svg" alt="Coat of arms of Malaysia">
-      <figcaption>HOSPITAL TUNKU AZIZAH</figcaption>
+      <figcaption>HOSPITAL TUNKU AZIZAH<span class="sub">(HOSPITAL WANITA DAN KANAK-KANAK)</span><span class="city">KUALA LUMPUR</span></figcaption>
     </figure>
   </div>
   <div class="tools">
