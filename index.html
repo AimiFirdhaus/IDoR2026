@@ -4161,6 +4161,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
   }
 
   // Cartoon skeleton on one person's body points (normalised 0-1, un-mirrored frame).
+  // No skull: faces are left visible on purpose.
   function drawBones(g, L) {
     const P = (i) => ({ x: L[i].x * W, y: L[i].y * H, v: L[i].v });
     const ok = (...ps) => ps.every((p) => p.v > 0.5);
@@ -4239,22 +4240,6 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
       bone(h, k, sw * 0.11); joint(k, sw * 0.07);
       pair(k, a, sw * 0.055, sw * 0.04);
       bone(heel, toe, sw * 0.05);
-    }
-    // skull
-    const ears = ok(le, re);
-    if (ears || ok(nose)) {
-      const c = ears ? lerp(re, le, 0.5) : nose, hw = ears ? Math.max(dist(le, re), sw * 0.3) : sw * 0.38;
-      g.translate(c.x, c.y); g.rotate(ears ? Math.atan2(le.y - re.y, le.x - re.x) : tilt);
-      g.fillStyle = "rgba(240,249,255,0.9)";
-      g.beginPath(); g.ellipse(0, -hw * 0.2, hw * 0.62, hw * 0.7, 0, 0, Math.PI * 2); g.fill();
-      g.beginPath(); g.roundRect(-hw * 0.38, hw * 0.15, hw * 0.76, hw * 0.55, hw * 0.2); g.fill();
-      g.shadowBlur = 0; g.fillStyle = "#0b1a33"; g.strokeStyle = "#0b1a33";
-      for (const s of [1, -1]) { g.beginPath(); g.ellipse(s * hw * 0.24, -hw * 0.04, hw * 0.17, hw * 0.15, 0, 0, Math.PI * 2); g.fill(); }
-      g.beginPath(); g.moveTo(0, hw * 0.1); g.lineTo(-hw * 0.07, hw * 0.26); g.lineTo(hw * 0.07, hw * 0.26); g.closePath(); g.fill();
-      g.lineWidth = Math.max(2, hw * 0.03);
-      g.beginPath(); g.moveTo(-hw * 0.26, hw * 0.47); g.lineTo(hw * 0.26, hw * 0.47);
-      for (let t = -2; t <= 2; t++) { g.moveTo(t * hw * 0.1, hw * 0.38); g.lineTo(t * hw * 0.1, hw * 0.56); }
-      g.stroke();
     }
     g.restore();
   }
