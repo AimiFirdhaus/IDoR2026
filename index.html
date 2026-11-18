@@ -135,6 +135,10 @@
   #selfie-stage { position: relative; flex: none; width: min(900px, 100%, calc((100vh - 340px) * 4 / 3)); aspect-ratio: 4 / 3; border-radius: 22px; overflow: hidden; background: #000; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
   #selfie-stage video, #selfie-stage img.shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   #selfie-stage video { transform: scaleX(-1); }
+  #selfie-fx { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); } /* X-ray filter, mirrored like the video */
+  #selfie-xray { background: #2bb3a3; color: #fff; box-shadow: 0 5px 0 #1d7f74; }
+  #selfie-xray.on { background: #ffd23f; color: #1d2b53; box-shadow: 0 5px 0 #c99a00; }
+  #selfie-xray:disabled { opacity: 0.6; cursor: wait; }
   #selfie-bolt { display: none !important; } /* Fiffy removed from the camera view and photo */
   #selfie-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #selfie-logo { position: absolute; left: 4.375%; top: 5.417%; width: 28.75%; pointer-events: none; } /* LOGO in the selfie code, as % of W x H */
@@ -221,6 +225,7 @@
   <h2 id="selfie-title"></h2>
   <div id="selfie-stage">
     <video id="selfie-video" autoplay playsinline muted></video>
+    <canvas id="selfie-fx" class="hidden" width="1280" height="960"></canvas>
     <img id="selfie-bolt" alt="">
     <img id="selfie-frame" alt="">
     <img id="selfie-logo" src="idor-title.png" alt="">
@@ -232,6 +237,7 @@
   <div id="selfie-msg" role="status" aria-live="polite"></div>
   <div id="selfie-live" class="selfie-row">
     <button id="selfie-shoot"></button>
+    <button id="selfie-xray"></button>
     <button id="selfie-open-gallery"></button>
   </div>
   <div id="selfie-review" class="hidden">
@@ -3988,6 +3994,12 @@ void main() {
     loadingPhotos: { en: "Loading photos…", ms: "Memuatkan gambar…" },
     pickPhoto: { en: "Tap your photo to get its QR code.", ms: "Sentuh gambar anda untuk mendapatkan kod QR." },
     noPhotos: { en: "No photos yet. Be the first!", ms: "Belum ada gambar. Jadilah yang pertama!" },
+    xrayOn: { en: "\u{1F9B4} X-ray filter", ms: "\u{1F9B4} Penapis X-ray" },
+    xrayOff: { en: "\u{1F642} Normal camera", ms: "\u{1F642} Kamera biasa" },
+    xrayLoading: { en: "Loading the X-ray filter…", ms: "Memuatkan penapis X-ray…" },
+    xrayFail: { en: "The X-ray filter couldn't load. Check the internet and try again.", ms: "Penapis X-ray tidak dapat dimuatkan. Semak internet dan cuba lagi." },
+    xrayHint: { en: "Step back a little so I can see your head and shoulders!", ms: "Undur sedikit supaya saya nampak kepala dan bahu anda!" },
+    xraySay: { en: "Whoa! Now I can see your bones, just like an X-ray!", ms: "Wah! Sekarang saya nampak tulang anda, macam X-ray!" },
   };
   const W = 1280, H = 960; // photo size, same 4:3 shape as the on-screen stage
   const IDLE_MS = 90e3;     // close and wipe the photo if the visitor walks away
@@ -4100,14 +4112,233 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     return brandLoading;
   }
 
+  // Draws the camera into a w x h canvas, cropped to fill it (like object-fit: cover).
+  function drawCover(g, w, h) {
+    const vw = video.videoWidth, vh = video.videoHeight, k = Math.max(w / vw, h / vh);
+    g.drawImage(video, (w - vw * k) / 2, (h - vh * k) / 2, vw * k, vh * k);
+  }
+
+  // ---- X-ray filter -------------------------------------------------------------------
+  // MediaPipe Pose (free, runs in the browser) finds up to 4 people: 33 body points each and
+  // an outline of the body. The body is turned into a glowing blue "X-ray" and cartoon bones
+  // are drawn on the body points. It's drawn at photo size on #selfie-fx, which covers the
+  // video in the live view and replaces it in the saved photo. The library and model
+  // (about 6 MB) load from the internet the first time the button is pressed.
+  const MP = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+  const POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+  const fx = $("selfie-fx"), fg = fx.getContext("2d");
+  const DW = 320, DH = 240; // the detector looks at a small copy of the frame (faster)
+  const det = document.createElement("canvas"); det.width = DW; det.height = DH;
+  const dg = det.getContext("2d", { willReadFrequently: true });
+  const maskC = document.createElement("canvas"); maskC.width = DW; maskC.height = DH;
+  const mg = maskC.getContext("2d");
+  const maskData = mg.createImageData(DW, DH);
+  const bodyC = document.createElement("canvas"); bodyC.width = W; bodyC.height = H;
+  const bg = bodyC.getContext("2d");
+  let xrayOn = false, poser = null, poserLoading = null, fxRaf = 0, fxReady = false, lastSeen = 0, hintShown = false, smooth = [];
+
+  function loadPoser() {
+    poserLoading ??= (async () => {
+      const { FilesetResolver, PoseLandmarker } = await import(`${MP}/vision_bundle.mjs`);
+      const files = await FilesetResolver.forVisionTasks(`${MP}/wasm`);
+      const make = (delegate) => PoseLandmarker.createFromOptions(files, {
+        baseOptions: { modelAssetPath: POSE_MODEL, delegate },
+        runningMode: "VIDEO", numPoses: 4, outputSegmentationMasks: true,
+      });
+      poser = await make("GPU").catch(() => make("CPU"));
+      return poser;
+    })().catch((e) => { poserLoading = null; throw e; });
+    return poserLoading;
+  }
+
+  // Evens out the wobble of the body points between frames.
+  function smoothPose(i, lm) {
+    const now = lm.map((q) => ({ x: q.x, y: q.y, v: q.visibility ?? 1 }));
+    const p = smooth[i];
+    smooth[i] = !p || Math.hypot(now[0].x - p[0].x, now[0].y - p[0].y) > 0.2 ? now // someone else: no smoothing
+      : now.map((q, j) => ({ x: p[j].x + (q.x - p[j].x) * 0.55, y: p[j].y + (q.y - p[j].y) * 0.55, v: q.v }));
+    return smooth[i];
+  }
+
+  // Cartoon skeleton on one person's body points (normalised 0-1, un-mirrored frame).
+  function drawBones(g, L) {
+    const P = (i) => ({ x: L[i].x * W, y: L[i].y * H, v: L[i].v });
+    const ok = (...ps) => ps.every((p) => p.v > 0.5);
+    const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, v: Math.min(a.v, b.v) });
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    const ls = P(11), rs = P(12), lh = P(23), rh = P(24), nose = P(0), le = P(7), re = P(8);
+    const sw = ok(ls, rs) ? dist(ls, rs) : ok(le, re) ? dist(le, re) * 2.2 : 0; // shoulder width sets the size
+    if (sw < 30) return;
+    // In the un-mirrored frame the person's right side is on the left, so right -> left points across the body.
+    const across = ok(ls, rs) ? { x: (ls.x - rs.x) / sw, y: (ls.y - rs.y) / sw } : { x: (le.x - re.x) / dist(le, re), y: (le.y - re.y) / dist(le, re) };
+    const down = { x: -across.y, y: across.x };
+    const sm = ok(ls, rs) ? lerp(rs, ls, 0.5) : { x: (le.x + re.x) / 2 + down.x * sw * 0.55, y: (le.y + re.y) / 2 + down.y * sw * 0.55, v: 1 };
+    const hm = ok(lh, rh) ? lerp(rh, lh, 0.5) : { x: sm.x + down.x * sw * 1.35, y: sm.y + down.y * sw * 1.35, v: 1 };
+    const tilt = Math.atan2(across.y, across.x);
+    const bone = (a, b, w) => {
+      if (!ok(a, b)) return;
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+      g.lineWidth = w; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
+      g.beginPath(); // knobbly ends
+      for (const [p, s] of [[a, 1], [b, -1]]) for (const k of [1, -1]) {
+        const cx = p.x - uy * w * 0.42 * k + ux * w * 0.25 * s, cy = p.y + ux * w * 0.42 * k + uy * w * 0.25 * s;
+        g.moveTo(cx + w * 0.5, cy); g.arc(cx, cy, w * 0.5, 0, Math.PI * 2);
+      }
+      g.fill();
+    };
+    const pair = (a, b, w, gap) => { // two side-by-side bones (forearm, shin)
+      if (!ok(a, b)) return;
+      const len = dist(a, b) || 1, nx = -(b.y - a.y) / len * gap, ny = (b.x - a.x) / len * gap;
+      const o = (p, k) => ({ x: p.x + nx * k, y: p.y + ny * k, v: p.v });
+      bone(o(a, 1), o(b, 1), w); bone(o(a, -1), o(b, -1), w * 0.8);
+    };
+    const joint = (p, r) => { if (ok(p)) { g.beginPath(); g.arc(p.x, p.y, r, 0, Math.PI * 2); g.fill(); } };
+    const blob = (p, rx, ry) => { g.beginPath(); g.ellipse(p.x, p.y, rx, ry, tilt, 0, Math.PI * 2); g.fill(); };
+
+    g.save();
+    g.lineCap = "round"; g.lineJoin = "round";
+    g.fillStyle = g.strokeStyle = "rgba(240,249,255,0.93)";
+    g.shadowColor = "rgba(140,215,255,0.95)"; g.shadowBlur = Math.max(8, sw * 0.07);
+
+    // spine, neck and ribs
+    for (let k = 0; k <= 13; k++) blob(lerp(sm, hm, k / 13), sw * 0.055, sw * 0.03);
+    g.lineWidth = sw * 0.032;
+    for (let k = 0; k < 6; k++) {
+      const p = lerp(sm, hm, 0.1 + k * 0.085), rw = sw * (0.4 - k * 0.012);
+      for (const s of [1, -1]) {
+        g.beginPath(); g.moveTo(p.x, p.y);
+        g.quadraticCurveTo(p.x + across.x * s * rw * 1.15 - down.x * sw * 0.05, p.y + across.y * s * rw * 1.15 - down.y * sw * 0.05,
+          p.x + across.x * s * rw * 0.95 + down.x * sw * 0.17, p.y + across.y * s * rw * 0.95 + down.y * sw * 0.17);
+        g.stroke();
+      }
+    }
+    bone(lerp(sm, hm, 0.07), lerp(sm, hm, 0.42), sw * 0.06); // breastbone
+    const neck = lerp(sm, hm, 0.02);
+    bone(neck, ls, sw * 0.05); bone(neck, rs, sw * 0.05); // collarbones
+    // hips
+    if (ok(lh, rh)) {
+      const hw = dist(lh, rh);
+      g.lineWidth = sw * 0.045;
+      for (const h of [lh, rh]) {
+        const c = lerp(hm, h, 0.55);
+        g.beginPath(); g.ellipse(c.x - down.x * hw * 0.25, c.y - down.y * hw * 0.25, hw * 0.36, hw * 0.46, tilt, 0, Math.PI * 2); g.stroke();
+      }
+    }
+    // arms and hands
+    for (const [s, e, w, pk, ix, th] of [[11, 13, 15, 17, 19, 21], [12, 14, 16, 18, 20, 22]].map((a) => a.map(P))) {
+      joint(s, sw * 0.07);
+      bone(s, e, sw * 0.085); joint(e, sw * 0.055);
+      pair(e, w, sw * 0.04, sw * 0.03);
+      if (ok(w)) {
+        const tips = [th, ix, ok(ix, pk) ? lerp(ix, pk, 0.33) : ix, ok(ix, pk) ? lerp(ix, pk, 0.66) : pk, pk];
+        for (const t of tips) if (ok(t)) bone(lerp(w, t, 0.3), lerp(w, t, 1.6), sw * 0.024);
+      }
+    }
+    // legs and feet
+    for (const [h, k, a, heel, toe] of [[23, 25, 27, 29, 31], [24, 26, 28, 30, 32]].map((x) => x.map(P))) {
+      bone(h, k, sw * 0.11); joint(k, sw * 0.07);
+      pair(k, a, sw * 0.055, sw * 0.04);
+      bone(heel, toe, sw * 0.05);
+    }
+    // skull
+    const ears = ok(le, re);
+    if (ears || ok(nose)) {
+      const c = ears ? lerp(re, le, 0.5) : nose, hw = ears ? Math.max(dist(le, re), sw * 0.3) : sw * 0.38;
+      g.translate(c.x, c.y); g.rotate(ears ? Math.atan2(le.y - re.y, le.x - re.x) : tilt);
+      g.fillStyle = "rgba(240,249,255,0.9)";
+      g.beginPath(); g.ellipse(0, -hw * 0.2, hw * 0.62, hw * 0.7, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.roundRect(-hw * 0.38, hw * 0.15, hw * 0.76, hw * 0.55, hw * 0.2); g.fill();
+      g.shadowBlur = 0; g.fillStyle = "#0b1a33"; g.strokeStyle = "#0b1a33";
+      for (const s of [1, -1]) { g.beginPath(); g.ellipse(s * hw * 0.24, -hw * 0.04, hw * 0.17, hw * 0.15, 0, 0, Math.PI * 2); g.fill(); }
+      g.beginPath(); g.moveTo(0, hw * 0.1); g.lineTo(-hw * 0.07, hw * 0.26); g.lineTo(hw * 0.07, hw * 0.26); g.closePath(); g.fill();
+      g.lineWidth = Math.max(2, hw * 0.03);
+      g.beginPath(); g.moveTo(-hw * 0.26, hw * 0.47); g.lineTo(hw * 0.26, hw * 0.47);
+      for (let t = -2; t <= 2; t++) { g.moveTo(t * hw * 0.1, hw * 0.38); g.lineTo(t * hw * 0.1, hw * 0.56); }
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  function fxFrame() {
+    fxRaf = requestAnimationFrame(fxFrame);
+    if (!poser || !video.videoWidth || video.readyState < 2 || $("selfie-stage").classList.contains("hidden")) return;
+    drawCover(dg, DW, DH);
+    const a = maskData.data;
+    a.fill(0);
+    let poses = [];
+    try {
+      poser.detectForVideo(det, performance.now(), (r) => {
+        poses = r.landmarks || [];
+        for (const m of r.segmentationMasks || []) {
+          const f = m.getAsFloat32Array();
+          if (f.length !== DW * DH) continue;
+          for (let i = 0; i < f.length; i++) { const v = f[i] * 255; if (v > a[i * 4 + 3]) a[i * 4 + 3] = v; }
+        }
+      });
+    } catch (e) { console.warn("x-ray filter", e); return; }
+    // background: the real camera, darker and blue
+    fg.globalCompositeOperation = "source-over";
+    drawCover(fg, W, H);
+    fg.globalCompositeOperation = "multiply"; fg.fillStyle = "#56719f"; fg.fillRect(0, 0, W, H);
+    fg.globalCompositeOperation = "source-over";
+    if (poses.length) {
+      // body: grey, inverted (like film), light blue, cut out along the body outline
+      mg.putImageData(maskData, 0, 0);
+      bg.globalCompositeOperation = "source-over"; drawCover(bg, W, H);
+      bg.globalCompositeOperation = "saturation"; bg.fillStyle = "#808080"; bg.fillRect(0, 0, W, H);
+      bg.globalCompositeOperation = "difference"; bg.fillStyle = "#fff"; bg.fillRect(0, 0, W, H);
+      bg.globalCompositeOperation = "multiply"; bg.fillStyle = "#9fe0ff"; bg.fillRect(0, 0, W, H);
+      bg.globalCompositeOperation = "destination-in"; bg.drawImage(maskC, 0, 0, W, H);
+      fg.drawImage(bodyC, 0, 0);
+      poses.forEach((lm, i) => drawBones(fg, smoothPose(i, lm)));
+      lastSeen = performance.now();
+    }
+    smooth.length = poses.length;
+    fxReady = true;
+    fx.classList.remove("hidden");
+    // nobody found for a while: tell them to step back
+    if (poses.length) { if (hintShown) { msg(""); hintShown = false; } }
+    else if (!hintShown && !busy && !$("selfie-live").classList.contains("hidden") && performance.now() - lastSeen > 1500) { msg(tx("xrayHint")); hintShown = true; }
+  }
+  function startFx() {
+    cancelAnimationFrame(fxRaf);
+    fxReady = false; smooth = []; lastSeen = performance.now();
+    fxFrame();
+  }
+  function stopFx() {
+    cancelAnimationFrame(fxRaf); fxRaf = 0; fxReady = false;
+    fx.classList.add("hidden");
+    if (hintShown) { msg(""); hintShown = false; }
+  }
+  function setXray(on) {
+    xrayOn = on;
+    const b = $("selfie-xray");
+    b.textContent = tx(on ? "xrayOff" : "xrayOn");
+    b.classList.toggle("on", on);
+    if (on) startFx(); else stopFx();
+  }
+  async function toggleXray() {
+    resetIdle();
+    if (xrayOn) { setXray(false); return; }
+    const b = $("selfie-xray");
+    b.disabled = true;
+    if (!poser) msg(tx("xrayLoading"));
+    try { await loadPoser(); }
+    catch (e) { console.warn("x-ray filter", e); b.disabled = false; msg(tx("xrayFail"), true); return; }
+    b.disabled = false;
+    if (overlay.classList.contains("hidden") || $("selfie-live").classList.contains("hidden")) return;
+    msg("");
+    setXray(true);
+    window.__bolt?.say(T.xraySay, "Surprised");
+  }
+
   function compose() {
     const c = document.createElement("canvas");
     c.width = W; c.height = H;
     const g = c.getContext("2d");
     // Saved un-mirrored (like a phone camera), so text in the photo reads the right way;
     // only the live view is mirrored (CSS). Cropped to 4:3 like the preview (object-fit: cover).
-    const vw = video.videoWidth, vh = video.videoHeight, k = Math.max(W / vw, H / vh);
-    g.drawImage(video, (W - vw * k) / 2, (H - vh * k) / 2, vw * k, vh * k);
+    if (xrayOn && fxReady) g.drawImage(fx, 0, 0); else drawCover(g, W, H);
     if (frameImg.complete && frameImg.naturalWidth) g.drawImage(frameImg, 0, 0, W, H);
     if (logoImg.complete && logoImg.naturalWidth) g.drawImage(logoImg, LOGO.x, LOGO.y, LOGO.w, LOGO.w * logoImg.naturalHeight / logoImg.naturalWidth);
     if (brandCanvas) g.drawImage(brandCanvas, BRAND.x, BRAND.y);
@@ -4155,6 +4386,8 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     $("selfie-count").textContent = "";
     show("selfie-live");
     clearInterval(boltTimer); // Fiffy is no longer shown over the camera
+    $("selfie-xray").disabled = false;
+    if (xrayOn) startFx();
   }
 
   function open() {
@@ -4171,6 +4404,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     $("selfie-email-back").textContent = tx("back");
     $("selfie-send").textContent = tx("send");
     $("selfie-shoot").disabled = true;
+    setXray(false); // each visitor starts with the normal camera
     loadFrame();
     loadBrand();
     overlay.classList.remove("hidden");
@@ -4182,6 +4416,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
 
   function close() {
     clearTimeout(idleTimer); clearInterval(boltTimer);
+    xrayOn = false; stopFx();
     stopCamera();
     overlay.classList.add("hidden");
     photo = null; thumb = null; saved = null;
@@ -4198,6 +4433,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     if (busy || !stream) return;
     busy = true;
     $("selfie-shoot").disabled = true;
+    $("selfie-xray").disabled = true;
     window.__bolt?.say(T.say, "Wave");
     for (const n of [3, 2, 1]) {
       $("selfie-count").textContent = n;
@@ -4207,6 +4443,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     $("selfie-count").textContent = "";
     clearInterval(boltTimer);
     const c = compose();
+    stopFx(); // the photo is shown now; liveView() restarts the filter on retake
     photo = c.toDataURL("image/jpeg", 0.85);
     const t = document.createElement("canvas");
     t.width = 320; t.height = 240;
@@ -4389,6 +4626,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
   $("selfie-pick-back").addEventListener("click", () => { msg(tx("pickPhoto")); show("selfie-gallery"); });
   $("selfie-close").addEventListener("click", close);
   $("selfie-shoot").addEventListener("click", shoot);
+  $("selfie-xray").addEventListener("click", toggleXray);
   $("selfie-retake").addEventListener("click", () => { msg(""); liveView(); });
   $("selfie-agree").addEventListener("change", () => { syncChoice(); if ($("selfie-agree").checked) msg(tx("review")); });
   $("selfie-get-qr").addEventListener("click", () => { $("selfie-qr-img").classList.remove("hidden"); getQr(); });
