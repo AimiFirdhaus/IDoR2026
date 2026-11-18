@@ -25,7 +25,8 @@
 
   header { position: fixed; top: 14px; left: 18px; right: 18px; display: flex; align-items: flex-start; justify-content: space-between; pointer-events: none; }
   h1 { flex: 0 1 auto; min-width: 0; margin: 0 12px 0 0; line-height: 0; pointer-events: auto; } /* tap 5 times for voice settings */
-  h1 img { width: clamp(140px, 28vw, 400px); max-width: 100%; height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); } /* shrinks on phones so the tool buttons stay on screen */
+  h1 .date { display: block; margin-top: 0.35em; color: #fff; font-family: "Avenir Next", Avenir, "Trebuchet MS", sans-serif; font-weight: 700; font-size: clamp(11px, 2.1vw, 30px); line-height: 1; letter-spacing: 0.02em; white-space: nowrap; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+  h1 img { display: block; width: clamp(140px, 28vw, 400px); max-width: 100%; height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); } /* shrinks on phones so the tool buttons stay on screen */
   #brand { flex: none; margin-left: auto; display: flex; align-items: center; gap: clamp(8px, 1.2vw, 20px); } /* top-right: radiology logo, then coat of arms with the hospital name */
   #dept-logo { width: clamp(64px, 11vw, 160px); height: auto; filter: drop-shadow(0 3px 12px rgba(0,0,0,0.45)); }
   #hosp { margin: 0; display: flex; flex-direction: column; align-items: center; gap: clamp(2px, 0.4vw, 6px); }
@@ -181,7 +182,7 @@
 <canvas id="scene" aria-label="Fiffy the sloth. Tap Fiffy to say hello."></canvas>
 
 <header>
-  <h1><img src="idor-title.png" alt="International Day of Radiology: Radiologists and Radiographers Supporting Patients"></h1>
+  <h1><img src="idor-title.png" alt="International Day of Radiology: Radiologists and Radiographers Supporting Patients"><span class="date">20 November 2026</span></h1>
   <div id="brand">
     <img id="dept-logo" src="htaa-radiology-logo.png" alt="Radiology Department, Hospital Tunku Azizah">
     <figure id="hosp">
@@ -4045,7 +4046,8 @@ void main() {
 <defs><linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="0.5" stop-color="#4f8cff"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
 <rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="30" fill="none" stroke="url(#edge)" stroke-width="18"/>
 <rect x="26" y="26" width="${W - 52}" height="${H - 52}" rx="20" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round" opacity="0.8"/>
-<rect x="${LOGO.x - 16}" y="${LOGO.y - 16}" width="${LOGO.w + 32}" height="${Math.round(LOGO.w / 2.563) + 32}" rx="24" fill="#1d2b53" fill-opacity="0.82" stroke="#fff" stroke-width="5"/>
+<rect x="${LOGO.x - 16}" y="${LOGO.y - 16}" width="${LOGO.w + 32}" height="${Math.round(LOGO.w / 2.563) + 72}" rx="24" fill="#1d2b53" fill-opacity="0.82" stroke="#fff" stroke-width="5"/>
+<text x="${LOGO.x + 4}" y="${LOGO.y + Math.round(LOGO.w / 2.563) + 38}" fill="#fff" font-family="'Avenir Next', Avenir, 'Trebuchet MS', Arial, sans-serif" font-weight="700" font-size="30" letter-spacing="0.5">20 November 2026</text>
 <g transform="translate(${W - 120} ${H - 210}) rotate(12)">
   <circle r="80" fill="#ffd23f" stroke="#fff" stroke-width="7"/>
   <g fill="#1d2b53">${[90, 210, 330].map((a) => `<path d="${blade(a, 20, 66)}"/>`).join("")}<circle r="13"/></g>
