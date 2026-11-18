@@ -137,6 +137,7 @@
   #selfie-bolt { display: none !important; } /* Fiffy removed from the camera view and photo */
   #selfie-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
   #selfie-logo { position: absolute; left: 4.375%; top: 5.417%; width: 28.75%; pointer-events: none; } /* LOGO in the selfie code, as % of W x H */
+  #selfie-brand { position: absolute; left: 72.1875%; top: 5.417%; width: 23.4375%; pointer-events: none; } /* BRAND in the selfie code, as % of W x H */
   #selfie-count { position: absolute; inset: 0; display: grid; place-items: center; font-size: min(30vw, 260px); font-weight: 800; color: #fff; text-shadow: 0 6px 30px rgba(0,0,0,0.6); pointer-events: none; }
   #selfie-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
   #selfie-flash.go { animation: flash 0.5s ease-out; }
@@ -222,6 +223,7 @@
     <img id="selfie-bolt" alt="">
     <img id="selfie-frame" alt="">
     <img id="selfie-logo" src="idor-title.png" alt="">
+    <img id="selfie-brand" alt="">
     <img id="selfie-shot" class="shot hidden" alt="Your selfie">
     <div id="selfie-count"></div>
     <div id="selfie-flash"></div>
@@ -3991,8 +3993,9 @@ void main() {
 
   let lang = "en", stream = null, photo = null, thumb = null, saved = null, busy = false, idleTimer = 0, boltTimer = 0;
   const tx = (k) => T[k][lang];
-  const overlay = $("selfie"), video = $("selfie-video"), shot = $("selfie-shot"), boltImg = $("selfie-bolt"), frameImg = $("selfie-frame"), logoImg = $("selfie-logo");
+  const overlay = $("selfie"), video = $("selfie-video"), shot = $("selfie-shot"), boltImg = $("selfie-bolt"), frameImg = $("selfie-frame"), logoImg = $("selfie-logo"), brandImg = $("selfie-brand");
   const LOGO = { x: 56, y: 52, w: 368 }; // event title graphic, on the dark card drawn in frameSvg()
+  const BRAND = { x: 924, y: 52, w: 300, h: 132 }; // dept logo + coat of arms, top-right, mirrors LOGO
   const msg = (text, error = false) => { $("selfie-msg").textContent = text; $("selfie-msg").classList.toggle("error", error); };
   const show = (...ids) => {
     for (const id of ["selfie-live", "selfie-review", "selfie-qr", "selfie-email", "selfie-gallery", "selfie-pick"]) $(id).classList.toggle("hidden", !ids.includes(id));
@@ -4043,7 +4046,8 @@ void main() {
 <rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="30" fill="none" stroke="url(#edge)" stroke-width="18"/>
 <rect x="26" y="26" width="${W - 52}" height="${H - 52}" rx="20" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round" opacity="0.8"/>
 <rect x="${LOGO.x - 16}" y="${LOGO.y - 16}" width="${LOGO.w + 32}" height="${Math.round(LOGO.w / 2.563) + 32}" rx="24" fill="#1d2b53" fill-opacity="0.82" stroke="#fff" stroke-width="5"/>
-<g transform="translate(${W - 120} 118) rotate(12)">
+<rect x="${BRAND.x - 16}" y="${BRAND.y - 16}" width="${BRAND.w + 32}" height="${BRAND.h + 32}" rx="24" fill="#1d2b53" fill-opacity="0.82" stroke="#fff" stroke-width="5"/>
+<g transform="translate(${W - 120} ${H - 210}) rotate(12)">
   <circle r="80" fill="#ffd23f" stroke="#fff" stroke-width="7"/>
   <g fill="#1d2b53">${[90, 210, 330].map((a) => `<path d="${blade(a, 20, 66)}"/>`).join("")}<circle r="13"/></g>
 </g>
@@ -4056,7 +4060,7 @@ void main() {
   <ellipse rx="46" ry="17"/><ellipse rx="46" ry="17" transform="rotate(60)"/><ellipse rx="46" ry="17" transform="rotate(120)"/>
   <circle r="9" fill="#ff7a59" stroke="none"/>
 </g>
-${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 290, 64, 1.8, "#7fe3d3")}${spark(W - 250, 214, 1.2, "#ffd23f")}${spark(60, H * 0.72, 1.6, "#ffd23f")}
+${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150, 250, 1.8, "#7fe3d3")}${spark(W - 270, 300, 1.2, "#ffd23f")}${spark(60, H * 0.72, 1.6, "#ffd23f")}
 <g transform="translate(50 ${H - 196}) rotate(-6)">
   <path d="M0 0H236A22 22 0 0 1 258 22V62A22 22 0 0 1 236 84H70L40 112L46 84H22A22 22 0 0 1 0 62V22A22 22 0 0 1 22 0Z" fill="#ff7a59" stroke="#fff" stroke-width="5"/>
   <text x="129" y="${tx("sticker").length > 11 ? 51 : 55}" text-anchor="middle" ${font} font-size="${tx("sticker").length > 11 ? Math.round(36 * 12 / tx("sticker").length) : 36}" fill="#fff">${tx("sticker")}</text>
@@ -4065,6 +4069,32 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 290,
   }
   function loadFrame() {
     frameImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(frameSvg());
+  }
+
+  // Hospital branding for the top-right card: dept logo, coat of arms and hospital name,
+  // like the main screen header. Drawn once to a canvas at photo scale (BRAND.w x BRAND.h),
+  // shown over the live camera as #selfie-brand and drawn into the saved photo by compose().
+  let brandCanvas = null, brandLoading = null;
+  function loadBrand() {
+    if (brandLoading) return brandLoading;
+    const load = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; });
+    brandLoading = Promise.all([load("htaa-radiology-logo.png"), load("malaysia-coat-of-arms.svg")]).then(([dept, arms]) => {
+      const c = document.createElement("canvas");
+      c.width = BRAND.w; c.height = BRAND.h;
+      const g = c.getContext("2d");
+      if (dept) g.drawImage(dept, 0, 6, 120, 120);
+      const bx = 132, bw = BRAND.w - bx, mid = bx + bw / 2; // block under/around the arms
+      if (arms) { const ah = 72, aw = ah * (arms.naturalWidth || 4) / (arms.naturalHeight || 3); g.drawImage(arms, mid - aw / 2, 0, aw, ah); }
+      g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "alphabetic";
+      const font = "'Trebuchet MS', Arial, sans-serif";
+      g.font = `800 15px ${font}`; g.fillText("HOSPITAL TUNKU AZIZAH", mid, 92, bw);
+      g.font = `700 10px ${font}`; g.fillText("(HOSPITAL WANITA DAN KANAK-KANAK)", mid, 109, bw);
+      g.font = `800 12px ${font}`; g.fillText("KUALA LUMPUR", mid, 126, bw);
+      brandCanvas = c;
+      brandImg.src = c.toDataURL("image/png");
+      return c;
+    });
+    return brandLoading;
   }
 
   function compose() {
@@ -4077,6 +4107,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 290,
     g.drawImage(video, (W - vw * k) / 2, (H - vh * k) / 2, vw * k, vh * k);
     if (frameImg.complete && frameImg.naturalWidth) g.drawImage(frameImg, 0, 0, W, H);
     if (logoImg.complete && logoImg.naturalWidth) g.drawImage(logoImg, LOGO.x, LOGO.y, LOGO.w, LOGO.w * logoImg.naturalHeight / logoImg.naturalWidth);
+    if (brandCanvas) g.drawImage(brandCanvas, BRAND.x, BRAND.y);
     const bannerH = 64;
     g.fillStyle = "rgba(29,43,83,0.82)";
     g.fillRect(0, H - bannerH, W, bannerH);
@@ -4115,7 +4146,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 290,
     photo = null; thumb = null; saved = null; busy = false;
     $("selfie-title").textContent = tx("title");
     shot.classList.add("hidden"); shot.removeAttribute("src");
-    video.classList.remove("hidden"); boltImg.classList.remove("hidden"); frameImg.classList.remove("hidden"); logoImg.classList.remove("hidden");
+    video.classList.remove("hidden"); boltImg.classList.remove("hidden"); frameImg.classList.remove("hidden"); logoImg.classList.remove("hidden"); brandImg.classList.remove("hidden");
     $("selfie-agree").checked = false;
     $("selfie-address").value = "";
     $("selfie-count").textContent = "";
@@ -4138,6 +4169,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 290,
     $("selfie-send").textContent = tx("send");
     $("selfie-shoot").disabled = true;
     loadFrame();
+    loadBrand();
     overlay.classList.remove("hidden");
     window.__bolt?.play("Wave");
     liveView();
@@ -4180,7 +4212,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 290,
     $("selfie-flash").classList.remove("go"); void $("selfie-flash").offsetWidth; $("selfie-flash").classList.add("go");
     shot.src = photo;
     shot.classList.remove("hidden");
-    video.classList.add("hidden"); boltImg.classList.add("hidden"); frameImg.classList.add("hidden"); logoImg.classList.add("hidden");
+    video.classList.add("hidden"); boltImg.classList.add("hidden"); frameImg.classList.add("hidden"); logoImg.classList.add("hidden"); brandImg.classList.add("hidden");
     $("selfie-shoot").disabled = false;
     busy = false;
     syncChoice();
