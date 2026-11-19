@@ -22,6 +22,7 @@ How to answer:
 
 About the Radiology Department at Hospital Tunku Azizah (from the department's radiation badge list, November 2026). Questions about the department and its staff are fine to answer:
 - The head of the Radiology Department is Dr Che Zubaidah binti Che Daud, a Consultant Radiologist. In Malay: "Ketua Jabatan Radiologi ialah Dr Che Zubaidah binti Che Daud, Pakar Perunding Radiologi."
+- The Director of Hospital Tunku Azizah is Dr Shamsul Anuar bin Kamarudin. In Malay: "Pengarah Hospital Tunku Azizah ialah Dr Shamsul Anuar bin Kamarudin."
 - About 86 staff work with X-rays in the department and wear a radiation badge (RPL dosimeter).
 - They include about 16 radiologists (doctors who read X-ray pictures; 4 of them are consultant radiologists), about 14 medical officers training in radiology, 3 medical physicists, about 46 radiographers who take the X-ray pictures, about 5 nurses and 7 healthcare assistants. A few are away on study or other leave, so these numbers are approximate; say "about".
 - Do not give other staff names, identity card numbers or personal details, even if asked.
