@@ -4148,15 +4148,15 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
   }
 
   // ---- X-ray filter -------------------------------------------------------------------
-  // MediaPipe Pose (free, runs in the browser) finds up to 4 people: 33 body points each and
+  // MediaPipe Pose (free, runs in the browser) finds up to 10 people: 33 body points each and
   // an outline of the body. The body is turned into a glowing blue "X-ray" and cartoon bones
   // are drawn on the body points. It's drawn at photo size on #selfie-fx, which covers the
   // video in the live view and replaces it in the saved photo. The library and model
-  // (about 6 MB) load from the internet the first time the button is pressed.
+  // (about 12 MB) load from the internet the first time the button is pressed.
   const MP = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
-  const POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+  const POSE_MODEL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
   const fx = $("selfie-fx"), fg = fx.getContext("2d");
-  const DW = 320, DH = 240; // the detector looks at a small copy of the frame (faster)
+  const DW = 480, DH = 360; // the detector looks at a smaller copy of the frame (faster)
   const det = document.createElement("canvas"); det.width = DW; det.height = DH;
   const dg = det.getContext("2d", { willReadFrequently: true });
   const maskC = document.createElement("canvas"); maskC.width = DW; maskC.height = DH;
@@ -4164,7 +4164,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
   const maskData = mg.createImageData(DW, DH);
   const bodyC = document.createElement("canvas"); bodyC.width = W; bodyC.height = H;
   const bg = bodyC.getContext("2d");
-  let xrayOn = false, poser = null, poserLoading = null, fxRaf = 0, fxReady = false, lastSeen = 0, hintShown = false, smooth = [];
+  let xrayOn = false, poser = null, poserLoading = null, fxRaf = 0, fxReady = false, lastSeen = 0, hintShown = false, tracks = [];
 
   function loadPoser() {
     poserLoading ??= (async () => {
@@ -4172,7 +4172,10 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
       const files = await FilesetResolver.forVisionTasks(`${MP}/wasm`);
       const make = (delegate) => PoseLandmarker.createFromOptions(files, {
         baseOptions: { modelAssetPath: POSE_MODEL, delegate },
-        runningMode: "VIDEO", numPoses: 4, outputSegmentationMasks: true,
+        runningMode: "VIDEO", numPoses: 10, outputSegmentationMasks: true,
+        // lower than the 0.5 defaults, so a second person (smaller, further back, partly
+        // hidden) is still picked up
+        minPoseDetectionScore: 0.3, minPosePresenceScore: 0.3, minTrackingConfidence: 0.3,
       });
       poser = await make("GPU").catch(() => make("CPU"));
       return poser;
@@ -4180,13 +4183,29 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     return poserLoading;
   }
 
-  // Evens out the wobble of the body points between frames.
-  function smoothPose(i, lm) {
-    const now = lm.map((q) => ({ x: q.x, y: q.y, v: q.visibility ?? 1 }));
-    const p = smooth[i];
-    smooth[i] = !p || Math.hypot(now[0].x - p[0].x, now[0].y - p[0].y) > 0.2 ? now // someone else: no smoothing
-      : now.map((q, j) => ({ x: p[j].x + (q.x - p[j].x) * 0.55, y: p[j].y + (q.y - p[j].y) * 0.55, v: q.v }));
-    return smooth[i];
+  // People seen recently: their body points (smoothed) and body outline. The detector
+  // sometimes misses someone for a frame or two, so a person is kept for HOLD ms after
+  // the last sighting; otherwise their skeleton flickers in and out. People are matched
+  // between frames by position, because the detector doesn't list them in a fixed order.
+  const HOLD = 600;
+  const centre = (L) => ({ x: (L[0].x + L[11].x + L[12].x) / 3, y: (L[0].y + L[11].y + L[12].y) / 3 });
+  function updateTracks(found, now) {
+    const used = new Set();
+    for (const { lm, mask } of found) {
+      const pts = lm.map((q) => ({ x: q.x, y: q.y, v: q.visibility ?? 1 }));
+      const c = centre(pts);
+      let best = null, bd = 0.2;
+      for (const t of tracks) {
+        if (used.has(t)) continue;
+        const d = Math.hypot(t.c.x - c.x, t.c.y - c.y);
+        if (d < bd) { bd = d; best = t; }
+      }
+      if (best) best.lm = best.lm.map((p, j) => ({ x: p.x + (pts[j].x - p.x) * 0.55, y: p.y + (pts[j].y - p.y) * 0.55, v: pts[j].v }));
+      else { best = { lm: pts }; tracks.push(best); }
+      best.c = centre(best.lm); best.seen = now; used.add(best);
+      if (mask) best.mask = mask;
+    }
+    tracks = tracks.filter((t) => now - t.seen < HOLD);
   }
 
   // Cartoon skeleton on one person's body points (normalised 0-1, un-mirrored frame).
@@ -4277,25 +4296,30 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     fxRaf = requestAnimationFrame(fxFrame);
     if (!poser || !video.videoWidth || video.readyState < 2 || $("selfie-stage").classList.contains("hidden")) return;
     drawCover(dg, DW, DH);
-    const a = maskData.data;
-    a.fill(0);
-    let poses = [];
+    let found = [];
+    const now = performance.now();
     try {
-      poser.detectForVideo(det, performance.now(), (r) => {
-        poses = r.landmarks || [];
-        for (const m of r.segmentationMasks || []) {
-          const f = m.getAsFloat32Array();
-          if (f.length !== DW * DH) continue;
-          for (let i = 0; i < f.length; i++) { const v = f[i] * 255; if (v > a[i * 4 + 3]) a[i * 4 + 3] = v; }
-        }
+      poser.detectForVideo(det, now, (r) => {
+        const masks = r.segmentationMasks || [];
+        found = (r.landmarks || []).map((lm, i) => {
+          const f = masks[i]?.getAsFloat32Array();
+          return { lm, mask: f && f.length === DW * DH ? f.slice() : null }; // copy: the mask is freed after this
+        });
       });
     } catch (e) { console.warn("x-ray filter", e); return; }
+    updateTracks(found, now);
+    const a = maskData.data;
+    a.fill(0);
+    for (const t of tracks) {
+      const f = t.mask;
+      if (f) for (let i = 0; i < f.length; i++) { const v = f[i] * 255; if (v > a[i * 4 + 3]) a[i * 4 + 3] = v; }
+    }
     // background: the real camera, a little darker and blue
     fg.globalCompositeOperation = "source-over";
     drawCover(fg, W, H);
     fg.globalCompositeOperation = "multiply"; fg.fillStyle = "#a8bfe3"; fg.fillRect(0, 0, W, H);
     fg.globalCompositeOperation = "source-over";
-    if (poses.length) {
+    if (tracks.length) {
       // body: grey, inverted (like film), light blue, cut out along the body outline
       mg.putImageData(maskData, 0, 0);
       bg.globalCompositeOperation = "source-over"; drawCover(bg, W, H);
@@ -4305,19 +4329,18 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
       bg.globalCompositeOperation = "screen"; bg.fillStyle = "#2d4a6b"; bg.fillRect(0, 0, W, H); // lift the darkest parts
       bg.globalCompositeOperation = "destination-in"; bg.drawImage(maskC, 0, 0, W, H);
       fg.drawImage(bodyC, 0, 0);
-      poses.forEach((lm, i) => drawBones(fg, smoothPose(i, lm)));
-      lastSeen = performance.now();
+      for (const t of tracks) drawBones(fg, t.lm);
     }
-    smooth.length = poses.length;
+    if (found.length) lastSeen = now;
     fxReady = true;
     fx.classList.remove("hidden");
     // nobody found for a while: tell them to step back
-    if (poses.length) { if (hintShown) { msg(""); hintShown = false; } }
+    if (tracks.length) { if (hintShown) { msg(""); hintShown = false; } }
     else if (!hintShown && !busy && !$("selfie-live").classList.contains("hidden") && performance.now() - lastSeen > 1500) { msg(tx("xrayHint")); hintShown = true; }
   }
   function startFx() {
     cancelAnimationFrame(fxRaf);
-    fxReady = false; smooth = []; lastSeen = performance.now();
+    fxReady = false; tracks = []; lastSeen = performance.now();
     fxFrame();
   }
   function stopFx() {
