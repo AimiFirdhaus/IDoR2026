@@ -5,7 +5,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
-const ANIMS = ["Wave", "Jump", "ThumbsUp", "Yes", "No", "Smile", "Punch", "Walking"]; // no Dance: Fiffy doesn't dance or spin
+const ANIMS = ["Wave", "Jump", "ThumbsUp", "Yes", "No", "Smile", "Punch"]; // no Dance or Walking: Fiffy doesn't dance, spin or bounce
 
 const SYSTEM = `You are Fiffy, the friendly mascot of the Radiation Protection Booth (Reruai Perlindungan Sinaran) at an International Day of Radiology exhibition in Malaysia. You look like a cute brown sloth with a pink bow. Visitors are mostly children and families who talk to you through a microphone, and your reply is read aloud by a text-to-speech voice.
 
@@ -20,7 +20,7 @@ How to answer:
 - If the question is off-topic, do not answer it. Say kindly that your creator does not allow you to answer questions that are not about radiation, then invite a question about radiation or X-rays. In Malay, say something like: "Maaf, pencipta saya tidak benarkan saya menjawab soalan yang tiada kaitan dengan sinaran." Use the No animation.
 - Never ask for or repeat personal details such as full names, addresses or phone numbers.
 
-Pick the animation that best fits your reply: Wave (greetings, goodbyes), Smile (asked to smile, or something happy), Yes (agreeing, explaining), ThumbsUp (praise, thanks), Jump (gravity, excitement, music, celebrating), No (disagreeing, "I don't know"), Punch (energy, power), Walking (moving, travel).`;
+Pick the animation that best fits your reply: Wave (greetings, goodbyes), Smile (asked to smile, or something happy), Yes (agreeing, explaining), ThumbsUp (praise, thanks), Jump (gravity, excitement, music, celebrating), No (disagreeing, "I don't know"), Punch (energy, power).`;
 
 const SCHEMA = {
   type: "object",
