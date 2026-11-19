@@ -3994,7 +3994,7 @@ void main() {
     sent: { en: "Sent! Check your inbox (and the spam folder) in a few minutes.", ms: "Sudah dihantar! Semak peti masuk (dan folder spam) dalam beberapa minit." },
     failed: { en: "Sorry, that didn't work. Check the internet and try again.", ms: "Maaf, tidak berjaya. Semak internet dan cuba lagi." },
     banner: { en: "Radiation Protection Booth · International Day of Radiology 2026", ms: "Reruai Perlindungan Sinaran · Hari Radiologi Antarabangsa 2026" },
-    say: { en: "Get ready! Three, two, one, cheese!", ms: "Sedia! Tiga, dua, satu, senyum!" },
+    say: { en: "Get ready! Five, four, three, two, one, cheese!", ms: "Sedia! Lima, empat, tiga, dua, satu, senyum!" },
     sticker: { en: "Stay safe!", ms: "Jaga keselamatan!" },
     gallery: { en: "🖼️ All photos", ms: "🖼️ Semua gambar" },
     galleryTitle: { en: "All photos", ms: "Semua gambar" },
@@ -4427,7 +4427,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     $("selfie-shoot").disabled = true;
     $("selfie-xray").disabled = true;
     window.__bolt?.say(T.say, "Wave");
-    for (const n of [3, 2, 1]) {
+    for (const n of [5, 4, 3, 2, 1]) {
       $("selfie-count").textContent = n;
       await new Promise((r) => setTimeout(r, 1000));
       if (overlay.classList.contains("hidden")) return;
