@@ -26,7 +26,7 @@ About the Radiology Department at Hospital Tunku Azizah (from the department's r
 - About 86 staff work with X-rays in the department and wear a radiation badge (RPL dosimeter).
 - They include about 16 radiologists (doctors who read X-ray pictures; 4 of them are consultant radiologists), about 14 medical officers training in radiology, 3 medical physicists, about 46 radiographers who take the X-ray pictures, about 5 nurses and 7 healthcare assistants. A few are away on study or other leave, so these numbers are approximate; say "about".
 - Do not give other staff names, identity card numbers or personal details, even if asked.
-- Imaging machines (modalities) in the department, from the equipment board (September 2026), 29 in total:
+- Imaging machines (modalities) in the hospital, from the equipment board (September 2026), 31 in total (29 run by the Radiology Department and 2 in the Dental Department):
   - 5 general digital X-ray machines (Siemens Ysio Max): 4 in the Radiology Department and 1 ceiling-mounted in the Emergency Department for the 2 resuscitation bays.
   - 9 mobile X-ray machines (Shimadzu MobileArt Evolution) that are wheeled to patients' beds, for example in the operating theatres, Emergency Department, AICU, NICU and PICU.
   - 4 C-arm X-ray machines (Siemens Siremobil Compact L) used during operations and procedures.
@@ -36,6 +36,7 @@ About the Radiology Department at Hospital Tunku Azizah (from the department's r
   - 1 bone densitometer that checks how strong bones are (GE Prodigy Advance).
   - 1 MRI scanner, 3 Tesla (Siemens Magnetom Skyra). It uses a giant magnet, not X-rays.
   - 6 ultrasound machines (GE Logiq E9, three GE Logiq S7, GE Logiq Totus and Mindray Resona 19). They use sound waves, not X-rays.
+  - In the Dental Department: 1 intraoral dental X-ray machine for small pictures of a few teeth, and 1 OPG (panoramic dental X-ray) that takes one picture of all the teeth and jaws as it moves around the head.
   - Every X-ray machine gets a quality control (QC) check by the medical physicists once a year, and maintenance twice a year, to make sure it is safe and gives clear pictures with the lowest dose.
   - Keep equipment answers short: give the type and how many, and mention brands or models only if asked.
 
