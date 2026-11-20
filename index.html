@@ -151,8 +151,8 @@
   #selfie-xray:disabled { opacity: 0.6; cursor: wait; }
   #selfie-bolt { display: none !important; } /* Fiffy removed from the camera view and photo */
   #selfie-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-  #selfie-logo { position: absolute; left: 4.375%; top: 5.417%; width: 28.75%; pointer-events: none; } /* LOGO in the selfie code, as % of W x H */
-  #selfie-brand { position: absolute; left: 72.1875%; top: 5.417%; width: 23.4375%; pointer-events: none; } /* BRAND in the selfie code, as % of W x H */
+  #selfie-logo { position: absolute; left: 66.875%; top: 5.417%; width: 28.75%; pointer-events: none; } /* LOGO in the selfie code, as % of W x H, on the other side: the live view is mirrored */
+  #selfie-brand { position: absolute; left: 4.375%; top: 5.417%; width: 23.4375%; pointer-events: none; } /* BRAND in the selfie code, as % of W x H, on the other side: the live view is mirrored */
   #selfie-count { position: absolute; inset: 0; display: grid; place-items: center; font-size: min(30vw, 260px); font-weight: 800; color: #fff; text-shadow: 0 6px 30px rgba(0,0,0,0.6); pointer-events: none; }
   #selfie-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
   #selfie-flash.go { animation: flash 0.5s ease-out; }
@@ -258,7 +258,7 @@
     <img id="selfie-bolt" alt="">
     <img id="selfie-frame" alt="">
     <img id="selfie-logo" src="idor-title.png" alt="">
-    <img id="selfie-brand" alt="">
+    <canvas id="selfie-brand" width="300" height="132"></canvas>
     <img id="selfie-shot" class="shot hidden" alt="Your selfie">
     <div id="selfie-count"></div>
     <div id="selfie-flash"></div>
@@ -4076,41 +4076,52 @@ void main() {
 
   // Radiology stickers around the edges (W x H), kept clear of faces in the middle and
   // of Fiffy on the right. Shown over the live camera and drawn into the saved photo.
-  function frameSvg() {
+  // mirror = true is the live view: the camera there is mirrored, so the stickers swap sides
+  // too and people see where they will be in the saved photo. Text is never flipped.
+  function frameSvg(mirror = false) {
+    const mx = (x) => mirror ? W - x : x; // a point's x
+    const mr = (r) => mirror ? -r : r; // a rotation
+    // place a group whose own drawing spans x = a..b: mirrored, the box swaps sides
+    // but the drawing inside is not flipped
+    const at = (x, y, r, a, b) => `translate(${mx(x)} ${y}) rotate(${mr(r)})${mirror ? ` translate(${-(a + b)} 0)` : ""}`;
+    const logoX = mirror ? W - LOGO.x - LOGO.w : LOGO.x;
     const blade = (a, r0, r1) => { // one 60-degree blade of the radiation symbol
       const p = (r, d) => `${(r * Math.cos(d * Math.PI / 180)).toFixed(1)} ${(r * Math.sin(d * Math.PI / 180)).toFixed(1)}`;
       return `M${p(r0, a - 30)}L${p(r1, a - 30)}A${r1} ${r1} 0 0 1 ${p(r1, a + 30)}L${p(r0, a + 30)}A${r0} ${r0} 0 0 0 ${p(r0, a - 30)}Z`;
     };
-    const spark = (x, y, s, fill) => `<path transform="translate(${x} ${y}) scale(${s})" fill="${fill}" d="M0 -10Q1.5 -1.5 10 0Q1.5 1.5 0 10Q-1.5 1.5 -10 0Q-1.5 -1.5 0 -10Z"/>`;
+    const spark = (x, y, s, fill) => `<path transform="translate(${mx(x)} ${y}) scale(${s})" fill="${fill}" d="M0 -10Q1.5 -1.5 10 0Q1.5 1.5 0 10Q-1.5 1.5 -10 0Q-1.5 -1.5 0 -10Z"/>`;
     const font = "font-family=\"'Trebuchet MS', Arial, sans-serif\" font-weight=\"800\"";
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
 <defs><linearGradient id="edge" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="0.5" stop-color="#4f8cff"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
 <rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="30" fill="none" stroke="url(#edge)" stroke-width="18"/>
 <rect x="26" y="26" width="${W - 52}" height="${H - 52}" rx="20" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round" opacity="0.8"/>
-<rect x="${LOGO.x - 16}" y="${LOGO.y - 16}" width="${LOGO.w + 32}" height="${Math.round(LOGO.w / 2.563) + 72}" rx="24" fill="#1d2b53" fill-opacity="0.82" stroke="#fff" stroke-width="5"/>
-<text x="${LOGO.x + 4}" y="${LOGO.y + Math.round(LOGO.w / 2.563) + 38}" fill="#fff" font-family="'Avenir Next', Avenir, 'Trebuchet MS', Arial, sans-serif" font-weight="700" font-size="30" letter-spacing="0.5">20 November 2026</text>
-<g transform="translate(${W - 120} ${H - 210}) rotate(12)">
+<rect x="${logoX - 16}" y="${LOGO.y - 16}" width="${LOGO.w + 32}" height="${Math.round(LOGO.w / 2.563) + 72}" rx="24" fill="#1d2b53" fill-opacity="0.82" stroke="#fff" stroke-width="5"/>
+<text x="${logoX + 4}" y="${LOGO.y + Math.round(LOGO.w / 2.563) + 38}" fill="#fff" font-family="'Avenir Next', Avenir, 'Trebuchet MS', Arial, sans-serif" font-weight="700" font-size="30" letter-spacing="0.5">20 November 2026</text>
+<g transform="${at(W - 120, H - 210, 12, 0, 0)}">
   <circle r="80" fill="#ffd23f" stroke="#fff" stroke-width="7"/>
   <g fill="#1d2b53">${[90, 210, 330].map((a) => `<path d="${blade(a, 20, 66)}"/>`).join("")}<circle r="13"/></g>
 </g>
-<g transform="translate(66 ${H * 0.52}) rotate(-10)">
+<g transform="${at(66, H * 0.52, -10, -10, 140)}">
   <rect x="-10" y="-46" width="150" height="104" rx="16" fill="#0d1530" stroke="#7fe3d3" stroke-width="5"/>
   <g fill="#e8f1ff"><rect x="34" y="-2" width="62" height="16" rx="6"/><circle cx="30" cy="-2" r="13"/><circle cx="30" cy="14" r="13"/><circle cx="100" cy="-2" r="13"/><circle cx="100" cy="14" r="13"/></g>
   <text x="65" y="46" text-anchor="middle" ${font} font-size="17" fill="#7fe3d3" letter-spacing="2">X-RAY</text>
 </g>
-<g transform="translate(118 ${H * 0.33})" fill="none" stroke="#fff" stroke-width="5" opacity="0.95">
+<g transform="${at(118, H * 0.33, 0, 0, 0)}" fill="none" stroke="#fff" stroke-width="5" opacity="0.95">
   <ellipse rx="46" ry="17"/><ellipse rx="46" ry="17" transform="rotate(60)"/><ellipse rx="46" ry="17" transform="rotate(120)"/>
   <circle r="9" fill="#ff7a59" stroke="none"/>
 </g>
 ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150, 250, 1.8, "#7fe3d3")}${spark(W - 270, 300, 1.2, "#ffd23f")}${spark(60, H * 0.72, 1.6, "#ffd23f")}
-<g transform="translate(50 ${H - 196}) rotate(-6)">
+<g transform="${at(50, H - 196, -6, 0, 258)}">
   <path d="M0 0H236A22 22 0 0 1 258 22V62A22 22 0 0 1 236 84H70L40 112L46 84H22A22 22 0 0 1 0 62V22A22 22 0 0 1 22 0Z" fill="#ff7a59" stroke="#fff" stroke-width="5"/>
   <text x="129" y="${tx("sticker").length > 11 ? 51 : 55}" text-anchor="middle" ${font} font-size="${tx("sticker").length > 11 ? Math.round(36 * 12 / tx("sticker").length) : 36}" fill="#fff">${tx("sticker")}</text>
 </g>
 </svg>`;
   }
+  const framePhoto = new Image(); // the un-mirrored frame, for the saved photo
   function loadFrame() {
-    frameImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(frameSvg());
+    const url = (m) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(frameSvg(m));
+    frameImg.src = url(true); // live view
+    framePhoto.src = url(false);
   }
 
   // Hospital branding for the top-right card: dept logo, coat of arms and hospital name,
@@ -4121,7 +4132,9 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     if (brandLoading) return brandLoading;
     const load = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; });
     brandLoading = Promise.all([load("htaa-radiology-logo.png"), load("malaysia-coat-of-arms.svg")]).then(([dept, arms]) => {
-      const c = document.createElement("canvas");
+      // Drawn straight into the on-screen canvas (not turned into an <img>): opened from a
+      // file:// address the browser blocks reading the canvas back, and the logos went missing.
+      const c = brandImg;
       c.width = BRAND.w; c.height = BRAND.h;
       const g = c.getContext("2d");
       // No card behind it, so a soft dark shadow keeps the logos and white text readable on any background.
@@ -4135,7 +4148,6 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
       g.font = `700 10px ${font}`; g.fillText("(HOSPITAL WANITA DAN KANAK-KANAK)", mid, 109, bw);
       g.font = `800 12px ${font}`; g.fillText("KUALA LUMPUR", mid, 126, bw);
       brandCanvas = c;
-      brandImg.src = c.toDataURL("image/png");
       return c;
     });
     return brandLoading;
@@ -4377,7 +4389,7 @@ ${spark(500, 62, 2.2, "#ffd23f")}${spark(562, 110, 1.3, "#fff")}${spark(W - 150,
     // Saved un-mirrored (like a phone camera), so text in the photo reads the right way;
     // only the live view is mirrored (CSS). Cropped to 4:3 like the preview (object-fit: cover).
     if (xrayOn && fxReady) g.drawImage(fx, 0, 0); else drawCover(g, W, H);
-    if (frameImg.complete && frameImg.naturalWidth) g.drawImage(frameImg, 0, 0, W, H);
+    if (framePhoto.complete && framePhoto.naturalWidth) g.drawImage(framePhoto, 0, 0, W, H);
     if (logoImg.complete && logoImg.naturalWidth) g.drawImage(logoImg, LOGO.x, LOGO.y, LOGO.w, LOGO.w * logoImg.naturalHeight / logoImg.naturalWidth);
     if (brandCanvas) g.drawImage(brandCanvas, BRAND.x, BRAND.y);
     const bannerH = 64;
